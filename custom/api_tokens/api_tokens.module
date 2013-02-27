@@ -1,0 +1,143 @@
+<?php
+
+
+/**
+ * Implements hook_filter_info().
+ */
+function api_tokens_filter_info() {
+  $filters = array();
+
+  $filters['api_tokens'] = array(
+    'title' => t('Replace API tokens'),
+    'description' => t('[Replace API tokens description]'),
+    'process callback' => 'api_tokens_filter_tokens',
+    'tips callback' => 'api_tokens_filter_tips',
+    //'cache' => FALSE,
+  );
+
+  return $filters;
+}
+
+
+/**
+ * Filter tip callback for the API tokens input filter.
+ */
+function api_tokens_filter_tips($filter, $format, $long = FALSE) {
+  if ($long) {
+    $output = t('[API Tokens long description]');
+  }
+  else {
+    $output = t('[API Tokens short description]');
+  }
+
+  return $output;
+}
+
+
+function _api_tokens_api_tokens_info() {
+  $tokens = array(
+    'link' => array(
+      'title' => t('Link'),
+      'handler' => 'api_tokens_handle_link',
+      'inc' => '',
+      // no sense to cache lightweight handlers
+      'cache' => FALSE,
+    ),
+  );
+
+  return $tokens;
+}
+
+
+function rsn_homepage_dedup_views_nids($name, $display) {
+  $nids = &drupal_static(__FUNCTION__, FALSE);
+
+  $key = $name . ':' . $display;
+  if (!isset($nids[$key])) {
+    $nids[$key] = array();
+    $result = views_get_view_result($name, $display);
+    foreach ($result as $row) {
+      $nids[$key][] = $row->nid;
+    }
+  }
+
+  return $nids[$key];
+}
+
+
+function api_tokens_collect_tokens() {
+  $tokens = &drupal_static(__FUNCTION__, FALSE);
+
+  if (!$tokens) {
+    $tokens = _api_tokens_api_tokens_info();
+
+    $modules = module_implements('api_tokens_info');
+    foreach ($modules as $module) {
+      $module_tokens = module_invoke($module, 'api_tokens_info');
+      $tokens = array_merge($tokens, $module_tokens);
+    }
+
+@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%',1)."\n",FILE_APPEND);
+@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($modules,1)."\n",FILE_APPEND);
+@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($tokens,1)."\n",FILE_APPEND);
+  }
+
+  return $tokens;
+}
+
+
+/**
+ * Filter process callback for the API tokens input filter.
+ */
+function api_tokens_filter_tokens($text, $filter, $format, $langcode, $cache, $cache_id) {
+  $tokens = api_tokens_collect_tokens();
+
+  preg_match_all('/\[\s*api\s*:\s*([0-9a-zA-Z_-]{1,})\s*(\{.*\})?\s*\]/', $text, $matches);
+
+  //@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($text,1)."\n",FILE_APPEND);
+
+  @file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($matches,1)."\n",FILE_APPEND);
+
+
+
+
+  if ($matches[0]) {
+
+    $rendered = array();
+
+    foreach ($matches[0] as $i => $match) {
+      $rendered[$i] = '';
+      $token = strtolower($matches[1][$i]);
+      if (array_key_exists($token, $tokens)) {
+
+        $params = $matches[2][$i] ? json_decode($matches[2][$i]) : array();
+
+        if (NULL !== $params) {
+
+          if (function_exists($tokens[$token]['handler'])) {
+            // INCLUDE INC IF REQUIRED
+@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($params,1)."\n",FILE_APPEND);
+
+            $rendered[$i] = call_user_func($tokens[$token]['handler'], (array) $params);
+          }
+        }
+      }
+    }
+
+    $text = str_replace($matches[0], $rendered, $text);
+  }
+
+  @file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($rendered,1)."\n",FILE_APPEND);
+
+  return $text;
+}
+
+
+function api_tokens_handle_link($params = array()) {
+  $content = '';
+  if (isset($params['url']) && isset($params['title'])) {
+    $content = '<a href="' . $params['url'] . '">' . $params['title'] . '</a>';
+  }
+
+  return $content;
+}

@@ -1,0 +1,5 @@
+name = API Tokens
+description = [API Tokens]
+package = Other
+core = 7.x
+;dependencies[] = token
