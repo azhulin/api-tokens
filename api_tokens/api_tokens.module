@@ -12,7 +12,7 @@ function api_tokens_filter_info() {
     'description' => t('[Replace API tokens description]'),
     'process callback' => 'api_tokens_filter_tokens',
     'tips callback' => 'api_tokens_filter_tips',
-    //'cache' => FALSE,
+    'cache' => DRUPAL_NO_CACHE,
   );
 
   return $filters;
@@ -34,39 +34,100 @@ function api_tokens_filter_tips($filter, $format, $long = FALSE) {
 }
 
 
-function _api_tokens_api_tokens_info() {
-  $tokens = array(
-    'link' => array(
-      'title' => t('Link'),
-      'handler' => 'api_tokens_handle_link',
-      'inc' => '',
-      // no sense to cache lightweight handlers
-      'cache' => FALSE,
-    ),
-  );
-
-  return $tokens;
-}
-
-
 function api_tokens_collect_tokens() {
   $tokens = &drupal_static(__FUNCTION__, FALSE);
 
   if (!$tokens) {
+    require_once 'handlers/api_tokens.inc';
+
     $tokens = _api_tokens_api_tokens_info();
 
     $modules = module_implements('api_tokens_info');
     foreach ($modules as $module) {
       $module_tokens = module_invoke($module, 'api_tokens_info');
+
+      foreach ($module_tokens as $token => &$token_info) {
+        $token_info['module'] = $module;
+        !isset($token_info['title']) && $token_info['title'] = $token;
+        !isset($token_info['handler']) && $token_info['handler'] = $module . '_apitoken_' . str_replace('-', '_', $token);
+        !isset($token_info['cache']) && $token_info['cache'] = DRUPAL_NO_CACHE;
+      }
+
       $tokens = array_merge($tokens, $module_tokens);
     }
 
-@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%',1)."\n",FILE_APPEND);
-@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($modules,1)."\n",FILE_APPEND);
-@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($tokens,1)."\n",FILE_APPEND);
+//@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($modules,1)."\n",FILE_APPEND);
+//@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($tokens,1)."\n",FILE_APPEND);
   }
 
   return $tokens;
+}
+
+
+function api_tokens_param_info($token) {
+  $tokens = &drupal_static('api_tokens_collect_tokens', FALSE);
+
+  $reflection = new ReflectionFunction($tokens[$token]['handler']);
+  $params = $reflection->getNumberOfRequiredParameters();
+
+  $tokens[$token]['params'] = $params;
+
+  return $params;
+}
+
+
+function api_tokens_cache_set($cid, $data, $token_info) {
+  $cache = &drupal_static('api_tokens_cache_get', FALSE);
+
+  $expire = isset($token_info['cache_expire']) ? $token_info['cache_expire'] : CACHE_PERMANENT;
+  if (0 < $expire) {
+    $expire += REQUEST_TIME;
+  }
+
+  $cache[$cid] = $data;
+  cache_set($cid, $data, 'cache', $expire);
+}
+
+
+function api_tokens_cache_get($cids) {
+  $cache = &drupal_static(__FUNCTION__, FALSE);
+
+
+  $data = array();
+
+  foreach ($cids as $i => $cid) {
+    if (isset($cache[$cid])) {
+@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r('%%%% CACHE: INT + ' . $cid,1)."\n",FILE_APPEND);
+      $data[$i] = $cache[$cid];
+      unset($cids[$i]);
+    }
+    else {
+@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r('%%%% CACHE: INT - ' . $cid,1)."\n",FILE_APPEND);
+    }
+  }
+
+
+  if (count($cids)) {
+    $cids_ext = $cids;
+    $cache_ext = cache_get_multiple($cids_ext);
+
+    foreach ($cids as $i => $cid) {
+      if (isset($cache_ext[$cid]) && (0 >= $cache_ext[$cid]->expire
+          || 0 < $cache_ext[$cid]->expire && REQUEST_TIME <= $cache_ext[$cid]->expire)) {
+@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r('%%%% CACHE: EXT + ' . $cid,1)."\n",FILE_APPEND);
+        $cache[$cid] = $cache_ext[$cid]->data;
+        $data[$i] = $cache[$cid];
+      }
+      else {
+@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r('%%%% CACHE: EXT - ' . $cid,1)."\n",FILE_APPEND);
+        $data[$i] = '';
+      }
+    }
+
+
+  }
+@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($cache,1)."\n",FILE_APPEND);
+  return $data;
 }
 
 
@@ -74,54 +135,156 @@ function api_tokens_collect_tokens() {
  * Filter process callback for the API tokens input filter.
  */
 function api_tokens_filter_tokens($text, $filter, $format, $langcode, $cache, $cache_id) {
+  global $user;
+
   $tokens = api_tokens_collect_tokens();
 
-  preg_match_all('/\[\s*api\s*:\s*([0-9a-zA-Z_-]{1,})\s*(\{.*\})?\s*\]/', $text, $matches);
-
-  //@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($text,1)."\n",FILE_APPEND);
-
-  @file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($matches,1)."\n",FILE_APPEND);
+  preg_match_all('/\[\s*api\s*:\s*([0-9a-zA-Z_-]{1,})\s*((\{.*\})|(\[.*\]))?\s*\]/', $text, $matches);
 
 
+  unset($matches[3], $matches[4]);
+
+//@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($matches,1)."\n",FILE_APPEND);
+  // TODO: remove `&`s
+  $replacements = &$matches[0];
+  $funarg = &$matches[1];
+  $params = &$matches[2];
 
 
-  if ($matches[0]) {
+  if ($replacements) {
 
     $rendered = array();
 
-    foreach ($matches[0] as $i => $match) {
-      $rendered[$i] = '';
-      $token = strtolower($matches[1][$i]);
-      if (array_key_exists($token, $tokens)) {
 
-        $params = $matches[2][$i] ? json_decode($matches[2][$i]) : array();
 
-        if (NULL !== $params) {
 
-          if (function_exists($tokens[$token]['handler'])) {
-            // INCLUDE INC IF REQUIRED
-@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($params,1)."\n",FILE_APPEND);
 
-            $rendered[$i] = call_user_func($tokens[$token]['handler'], (array) $params);
+    $cids = array();
+
+    foreach ($replacements as $i => $null) {
+//@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r('>>>>' . $i . '<<<<',1)."\n",FILE_APPEND);
+      $funarg[$i] = strtolower($funarg[$i]);
+
+      if (array_key_exists($funarg[$i], $tokens)) {
+        $rendered[$i] = '';
+
+        $token_info = $tokens[$funarg[$i]];
+
+        $params[$i] = $params[$i] ? json_decode($params[$i]) : NULL;
+
+
+
+        if (DRUPAL_NO_CACHE != $token_info['cache']) {
+
+//@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($user,1)."\n",FILE_APPEND);
+//@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($params[$i],1)."\n",FILE_APPEND);
+
+          $hash = array($params[$i]);
+          $prefix = 'apitoken:' . $funarg[$i] . ':';
+
+          for ($shift = 0; $shift < 3; ++$shift) {
+            $flag = $token_info['cache'] >> $shift & 1;
+
+            // TODO: remove `1 ||`
+            if (1 || $flag) {
+              switch ($shift) {
+                case 0:
+                  // DRUPAL_CACHE_PER_ROLE
+                  $hash[1] = $user->roles;
+                  break;
+
+                case 1:
+                  // DRUPAL_CACHE_PER_USER
+                  $hash[2] = $user->uid;
+                  break;
+
+                case 2:
+                  // DRUPAL_CACHE_PER_PAGE
+                  $hash[3] = $_GET['q'];
+                  break;
+                // case 3:
+                  // DRUPAL_CACHE_PER_PAGE
+                  //break;
+              }
+            }
           }
+          $cids[$i] = $prefix . md5(serialize($hash));
         }
+
+
+        $params[$i] = (array) $params[$i];
+      }
+      else {
+        unset($replacements[$i], $funarg[$i], $params[$i]);
       }
     }
 
-    $text = str_replace($matches[0], $rendered, $text);
+
+
+
+
+
+
+    if ($cids) {
+      $cache = api_tokens_cache_get($cids);
+      foreach ($cache as $i => $data) {
+        $rendered[$i] = $data;
+      }
+
+    }
+    //@file_put_contents('D:/log.txt', date('m-d-y H:i:s') . ' ' . basename(__FILE__) . ':' . __LINE__ . ">\n" . print_r($cache, 1) . "\n", FILE_APPEND);
+
+
+//@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($matches,1)."\n",FILE_APPEND);
+    @file_put_contents('D:/log.txt', date('m-d-y H:i:s') . ' ' . basename(__FILE__) . ':' . __LINE__ . ">\n" . print_r($cids, 1) . "\n", FILE_APPEND);
+
+
+
+
+
+
+
+
+    foreach ($replacements as $i => $null) {
+      if (!$rendered[$i]) {
+        @file_put_contents('D:/log.txt', date('m-d-y H:i:s') . ' ' . basename(__FILE__) . ':' . __LINE__ . ">\n" . print_r('>>>> ' . $i . ' NO CACHE', 1) . "\n", FILE_APPEND);
+
+        $token_info = $tokens[$funarg[$i]];
+
+        if (isset($token_info['inc']) && isset($token_info['module'])) {
+          $included = module_load_include('inc', $token_info['module'], $token_info['inc']);
+          if (!$included) {
+            continue;
+          }
+        }
+
+        if (function_exists($token_info['handler'])) {
+
+          $param_count = isset($token_info['params']) ? $token_info['params'] : api_tokens_param_info($funarg[$i]);
+
+          if ($param_count <= count($params[$i])) {
+
+//@file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($params[$i],1)."\n",FILE_APPEND);
+
+            $rendered[$i] = call_user_func_array($token_info['handler'], $params[$i]);
+
+            if (DRUPAL_NO_CACHE != $token_info['cache']) {
+              api_tokens_cache_set($cids[$i], $rendered[$i], $token_info);
+            }
+          }
+        }
+      }
+      // TODO: remove `else` statement
+      else {
+        @file_put_contents('D:/log.txt', date('m-d-y H:i:s') . ' ' . basename(__FILE__) . ':' . __LINE__ . ">\n" . print_r('>>>> ' . $i . ' FROM CACHE', 1) . "\n", FILE_APPEND);
+      }
+    }
+
+    $text = str_replace($replacements, $rendered, $text);
   }
 
-  @file_put_contents('D:/log.txt',date('m-d-y H:i:s').' '.basename(__FILE__).':'.__LINE__.">\n".print_r($rendered,1)."\n",FILE_APPEND);
+  //@file_put_contents('D:/log.txt', date('m-d-y H:i:s') . ' ' . basename(__FILE__) . ':' . __LINE__ . ">\n" . print_r(api_tokens_collect_tokens(), 1) . "\n", FILE_APPEND);
+  @file_put_contents('D:/log.txt', date('m-d-y H:i:s') . ' ' . basename(__FILE__) . ':' . __LINE__ . ">\n" . print_r($rendered, 1) . "\n", FILE_APPEND);
 
   return $text;
-}
-
-
-function api_tokens_handle_link($params = array()) {
-  $content = '';
-  if (isset($params['url']) && isset($params['title'])) {
-    $content = '<a href="' . $params['url'] . '">' . $params['title'] . '</a>';
-  }
-
-  return $content;
 }
