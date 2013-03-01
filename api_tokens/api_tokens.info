@@ -1,5 +1,4 @@
 name = API Tokens
-description = [API Tokens]
+description = Defines input filter that processes API tokens.
 package = Other
 core = 7.x
-;dependencies[] = token
