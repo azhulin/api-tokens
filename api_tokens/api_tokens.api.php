@@ -46,7 +46,7 @@ function hook_api_tokens_api_tokens_info() {
     // Relative path to token process function without extension.
     // If omitted, means that the process function located in .module file
     // Optional
-    'inc' => 'handlers/api_tokens',
+    'inc' => 'includes/handlers',
 
     // Number of required parameters of the process function
     // If omitted, api_tokens_param_info() will be used to determine number of required parameters

@@ -15,7 +15,7 @@ function _api_tokens_api_tokens_info() {
   $tokens['link'] = array(
     'title' => t('Link'),
     'description' => t('Renders a link'),
-    'inc' => 'handlers/api_tokens',
+    'inc' => 'includes/api_tokens',
     'params' => 2,
   );
 
