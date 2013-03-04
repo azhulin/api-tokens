@@ -14,11 +14,11 @@
  * Register API tokens
  *
  * Token example:
- *   [api:demo["param1", {"param2": {"inner1": "value1"}}]]
+ *   [api:demo["param1", {"param2": {"inner1": "value1"}}]/]
  * Parameters part must be a valid JSON array.
  *
  * Extra spaces are allowed:
- *  [  api  :  demo  [  "param1"  ,   {  "param2"  :   {  "inner1"  :   "value1"  }  }  ]  ]
+ *  [  api  :  demo  [  "param1"  ,   {  "param2"  :   {  "inner1"  :   "value1"  }  }  ]  /  ]
  *
  * @return
  *   Array of tokens to register.

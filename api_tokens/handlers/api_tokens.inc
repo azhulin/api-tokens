@@ -26,10 +26,10 @@ function _api_tokens_api_tokens_info() {
 /**
  * Process function of the Link API Token.
  *
- * Token example: [api:link["Test", "node/1", {}, true]]
+ * Token example: [api:link["Test", "node/1", {}, true]/]
  * Result: <a href="http://api-tokens-dev.localhost:8082/content/test">Test</a>
  *
- * Token example: [api:link["Drupal", "http://drupal.org", {"attributes": {"target": "_blank", "class": ["button"]}}]]
+ * Token example: [api:link["Drupal", "http://drupal.org", {"attributes": {"target": "_blank", "class": ["button"]}}]/]
  * Result: <a class="button" target="_blank" href="http://drupal.org">Drupal</a>
  *
  * @param string $text

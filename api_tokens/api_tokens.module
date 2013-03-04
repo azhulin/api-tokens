@@ -168,7 +168,7 @@ function api_tokens_filter_tokens($text, $filter, $format, $langcode, $cache, $c
   global $user;
 
   // Finding tokens entries to process
-  $token_count = preg_match_all('/\[\s*api\s*:\s*([:0-9a-z_-]+)\s*(\[.*?\])?\s*\]/i', $text, $matches);
+  $token_count = preg_match_all('/\[\s*api\s*:\s*([:0-9a-z_-]+)\s*(\[.*?\])?\s*\\/\s*]/i', $text, $matches);
   // Some tokens were found
   if ($token_count) {
     $replacements = $matches[0];
@@ -188,8 +188,7 @@ function api_tokens_filter_tokens($text, $filter, $format, $langcode, $cache, $c
 
       // Checking if token is registered
       if (array_key_exists($funarg[$i], $tokens)) {
-        // If token processing is failed, will cut token from text
-        $rendered[$i] = '';
+        $rendered[$i] = FALSE;
         $token_info = $tokens[$funarg[$i]];
         // Parsing token parameters
         $params[$i] = $params[$i] ? drupal_json_decode($params[$i]) : NULL;
@@ -230,9 +229,9 @@ function api_tokens_filter_tokens($text, $filter, $format, $langcode, $cache, $c
           $cids[$i] = $prefix . md5(serialize($hash));
         }
       }
-      // Removing unregistered tokens
+      // Cut out unregistered tokens
       else {
-        unset($replacements[$i], $funarg[$i], $params[$i]);
+        $rendered[$i] = '';
       }
     }
 
@@ -245,9 +244,9 @@ function api_tokens_filter_tokens($text, $filter, $format, $langcode, $cache, $c
       }
     }
 
-    // Processing tokens without cache
+    // Processing tokens with missing cache
     foreach ($rendered as $i => $was_rendered) {
-      if (!$was_rendered) {
+      if (FALSE === $was_rendered) {
         $token_info = $tokens[$funarg[$i]];
 
         // Checking for inc file where token process function may live
