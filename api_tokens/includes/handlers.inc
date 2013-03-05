@@ -45,11 +45,9 @@ function _api_tokens_api_tokens_info() {
  */
 function api_tokens_apitoken_link($text, $path, array $options = array(), $force_absolute = FALSE) {
   $text = t($text);
-
   if ($force_absolute) {
     $path = url($path, array('absolute' => TRUE));
   }
-
   $content = l($text, $path, $options);
 
   return $content;

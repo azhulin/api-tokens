@@ -1,30 +1,38 @@
 <?php
 
 
-function api_tokens_page_format_description($token) {
-  return $token['description'] ? $token['description'] : '<small><i>' . t('No description.') . '</i></small>';
-}
-
-
-function api_tokens_page_format_params($token) {
+/**
+ * Renders synopsis cell.
+ */
+function api_tokens_page_format_synopsis($token) {
+  // Verifying token process function
   if (api_tokens_prepare_handler($token['key'])) {
-
-    $params = api_tokens_param_info($token['key'], TRUE);
-    $content = $params ? print_r($params, 1) : '-';
+    // Collecting full handler params info
+    $param_info = api_tokens_param_info($token['key'], TRUE);
+    $content = '<pre>[api:' . $token['key'] . '/]</pre>';
+    // Marking required parameters
+    for ($i = 0; $i < $param_info['count']; ++$i) {
+      $param_info['params'][$i] .= '<sup>*</sup>';
+    }
+    $param_info = implode(', ', $param_info['params']);
+    $content = $param_info ? str_replace('/]', '[' . $param_info . ']/]', $content) : $content;
   }
   else {
-    $content = '<strong>' . t('Token handler not found') . '</strong>';
+    $content = '<em>' . t('Token handler not found') . '</em>';
   }
 
   return $content;
 }
 
 
+/**
+ * Renders cache cell.
+ */
 function api_tokens_page_format_cache($token) {
   $cache = $token['cache'];
   $content = array();
-
-  if (0 < $cache) {
+  // Token is cacheable
+  if (DRUPAL_NO_CACHE != $cache) {
     DRUPAL_CACHE_PER_ROLE & $cache && $content[] = t('Per user role');
     DRUPAL_CACHE_PER_USER & $cache && $content[] = t('Per user');
     DRUPAL_CACHE_PER_PAGE & $cache && $content[] = t('Per page');
@@ -38,7 +46,11 @@ function api_tokens_page_format_cache($token) {
 }
 
 
+/**
+ * Renders expiration cell.
+ */
 function api_tokens_page_format_expiration($token) {
+  // Token is cacheable
   if (DRUPAL_NO_CACHE != $token['cache']) {
     $expire = $token['cache_expire'];
     // If cache isn't set to CACHE_PERMANENT (0) or CACHE_TEMPORARY (-1)
@@ -78,61 +90,71 @@ function api_tokens_page_format_expiration($token) {
 }
 
 
+/**
+ * Renders description cell.
+ */
+function api_tokens_page_format_description($token) {
+  return $token['description'] ? $token['description'] : '<small><i>' . t('No description.') . '</i></small>';
+}
+
+
+/**
+ * Builds token list table row.
+ */
 function api_tokens_page_build_row($token) {
   $row = array(
     $token['title'],
-    api_tokens_page_format_description($token),
-    api_tokens_page_format_params($token),
+    api_tokens_page_format_synopsis($token),
     api_tokens_page_format_cache($token),
     api_tokens_page_format_expiration($token),
+    api_tokens_page_format_description($token),
   );
 
   return $row;
 }
 
 
+/**
+ * Renders token list page.
+ */
 function api_tokens_page_list() {
+  // Retrieving module info.
   $module_list = system_rebuild_module_data();
-
-
+  // Receiving all registered tokens
   $tokens = api_tokens_collect_tokens();
-
   $tokens_info = array();
+  // Grouping tokens by provider module
   foreach ($tokens as $token) {
     $tokens_info[$token['module']][] = $token;
   }
-
   $rows = array();
-  $row_number = 0;
+  $i = 0;
   foreach ($tokens_info as $module => &$tokens) {
     $token = array_shift($tokens);
-
-    $rows[$row_number] = array(
+    $rows[$i] = array(
       $module => array(
         'data' => $module_list[$module]->info['name'],
         'rowspan' => count($tokens) + 1,
       ),
     );
-
-    $rows[$row_number++] += api_tokens_page_build_row($token);
+    $rows[$i++] += api_tokens_page_build_row($token);
     foreach ($tokens as $token) {
-      $rows[$row_number++] = api_tokens_page_build_row($token);
+      $rows[$i++] = api_tokens_page_build_row($token);
     }
   }
-
   $vars = array(
     'header' => array(
       t('Provider'),
       t('Token'),
-      t('Description'),
-      t('Parameters'),
+      t('Synopsis'),
       t('Cache'),
       t('Expiration'),
+      t('Description'),
     ),
     'rows' => $rows,
   );
-
-  $content = theme('table', $vars);
+  $content = theme('table', $vars)
+   . '<div class="description"><sup>*</sup> - ' . t('Required parameter.') . '</div>';
 
   return $content;
 }

@@ -114,26 +114,36 @@ function api_tokens_collect_tokens() {
 
 
 /**
- * Returns the number of required parameters of the token process function.
+ * Returns parameters info of the token process function.
  */
 function api_tokens_param_info($token, $full = FALSE) {
   $tokens = &drupal_static('api_tokens_collect_tokens', FALSE);
 
-  $token = $tokens[$token];
-  $reflection = new ReflectionFunction($token['handler']);
-
-  if (!$full) {
-    $params = $reflection->getNumberOfRequiredParameters();
-    $token['params'] = $params;
+  $reflection = new ReflectionFunction($tokens[$token]['handler']);
+  // Number of required parameters only
+  $data = $reflection->getNumberOfRequiredParameters();
+  $tokens[$token]['params'] = $data;
+  // Number of required parameters and parameter list
+  if ($full) {
+    $params = array();
+    $ref_params = $reflection->getParameters();
+    foreach ($ref_params as $param) {
+      $params[] = $param->name;
+    }
+    $data = array(
+      'count' => $data,
+      'params' => $params,
+    );
   }
-  else {
-    $params = $reflection->getParameters();
-  }
 
-  return $params;
+  return $data;
 }
 
 
+/**
+ * Prepares token process function.
+ * Includes handler file, verifies function existence.
+ */
 function api_tokens_prepare_handler($token) {
   $tokens = &drupal_static('api_tokens_collect_tokens', FALSE);
 
@@ -146,15 +156,8 @@ function api_tokens_prepare_handler($token) {
       return FALSE;
     }
   }
-
   // Checking process function existence
-  if (function_exists($tokens[$token]['handler'])) {
-    // Receiving number of required parameters
-    if (!isset($tokens[$token]['params'])) {
-      $tokens[$token]['params'] = api_tokens_param_info($token);
-    }
-  }
-  else {
+  if (!function_exists($tokens[$token]['handler'])) {
     return FALSE;
   }
 
@@ -168,7 +171,7 @@ function api_tokens_prepare_handler($token) {
 function api_tokens_cache_set($cid, $data, $token_info) {
   $cache = &drupal_static('api_tokens_cache_get', FALSE);
 
-  // Storing into static
+  // Storing to static
   $cache[$cid] = $data;
 
   $expire = $token_info['cache_expire'];
@@ -189,20 +192,18 @@ function api_tokens_cache_get($cids) {
   $cache = &drupal_static(__FUNCTION__, FALSE);
 
   $data = array();
-  // Checking static storage
+  // Checking in static storage
   foreach ($cids as $i => $cid) {
     if (isset($cache[$cid])) {
       $data[$i] = $cache[$cid];
       unset($cids[$i]);
     }
   }
-
   // If not all cids are found in static storage, cheching DB cache
   if (count($cids)) {
-    // Creating a reference to $cids and passing it to cache_get as $cids will be overriden after call.
+    // Creating a reference to $cids and passing it to cache_get as $cids will be overriden after the call.
     $cids_ref = $cids;
     $cache_ext = cache_get_multiple($cids_ref);
-
     foreach ($cids as $i => $cid) {
       // Checking if DB cache exists and its expiration date
       if (isset($cache_ext[$cid]) && (0 >= $cache_ext[$cid]->expire
@@ -222,12 +223,28 @@ function api_tokens_cache_get($cids) {
 
 
 /**
+ * Generates token cache id in accordance with caching types.
+ */
+function api_tokens_cache_id($token, $params) {
+  global $user;
+
+  // Building token cache ID
+  $hash = array($params);
+  DRUPAL_CACHE_PER_ROLE & $token['cache'] && $hash[1] = implode(',', $user->roles);
+  DRUPAL_CACHE_PER_USER & $token['cache'] && $hash[2] = $user->uid;
+  DRUPAL_CACHE_PER_PAGE & $token['cache'] && $hash[3] = $_GET['q'];
+  $cid = 'apitoken:' . $token['key'] . ':' . md5(serialize($hash));
+
+  return $cid;
+}
+
+
+/**
  * Filter process callback for the API Tokens input filter.
  */
 function api_tokens_filter_tokens($text, $filter, $format, $langcode, $cache, $cache_id) {
-  global $user;
-
   // Finding tokens entries to process
+  //[api:token_key1[param1, param2, ...]/], [api:token_key2/]
   $token_count = preg_match_all('/\[\s*api\s*:\s*([:0-9a-z_-]+)\s*(\[.*?\])?\s*\\/\s*]/i', $text, $matches);
   // Some tokens were found
   if ($token_count) {
@@ -255,12 +272,7 @@ function api_tokens_filter_tokens($text, $filter, $format, $langcode, $cache, $c
 
         // Token is cacheable
         if (DRUPAL_NO_CACHE != $token_info['cache']) {
-          // Building token cache ID
-          $hash = array($params[$i]);
-          DRUPAL_CACHE_PER_ROLE & $token_info['cache'] && $hash[1] = implode(',', $user->roles);
-          DRUPAL_CACHE_PER_USER & $token_info['cache'] && $hash[2] = $user->uid;
-          DRUPAL_CACHE_PER_PAGE & $token_info['cache'] && $hash[3] = $_GET['q'];
-          $cids[$i] = 'apitoken:' . $keys[$i] . ':' . md5(serialize($hash));
+          $cids[$i] = api_tokens_cache_id($token_info, $params[$i]);
         }
       }
       // Cut out unregistered tokens
@@ -283,11 +295,11 @@ function api_tokens_filter_tokens($text, $filter, $format, $langcode, $cache, $c
       if (FALSE === $was_rendered) {
         $token_info = $tokens[$keys[$i]];
         if (api_tokens_prepare_handler($keys[$i])) {
-// Receiving number of required parameters
-$param_count = isset($token_info['params']) ? $token_info['params'] : api_tokens_param_info($keys[$i]);
+          // Receiving number of required parameters
+          $param_count = isset($token_info['params']) ? $token_info['params'] : api_tokens_param_info($keys[$i]);
           // We have enough parameters
           if ($param_count <= count($params[$i])) {
-            // Calling token process function
+            // Call to token process function
             $rendered[$i] = call_user_func_array($token_info['handler'], $params[$i]);
             // Caching handler result, if token is cacheable
             if (DRUPAL_NO_CACHE != $token_info['cache']) {

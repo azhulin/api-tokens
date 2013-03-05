@@ -16,7 +16,7 @@ function api_token_provider_api_tokens_info() {
 
   $tokens['user-link'] = array(
     'title' => t('User Link'),
-    'handler' => 'api_token_provider_handle_user_link',
+    'handler' => 'api_token_provider_handle_user_linka',
     'inc' => 'includes/api_tokens',
     // no sense to cache lightweight or dynamic handlers
     'cache' => DRUPAL_CACHE_PER_USER,
