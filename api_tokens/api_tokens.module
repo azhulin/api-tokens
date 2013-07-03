@@ -27,11 +27,9 @@ function api_tokens_filter_info() {
   $filters = array();
 
   $filters['api_tokens'] = array(
-    'title' => t('Replace API tokens'),
-    // @TODO: Informative description
-    'description' => t('[Replace API tokens description]'),
+    'title' => t('API Tokens'),
+    'description' => t('Replace API tokens with rendered content'),
     'process callback' => 'api_tokens_filter_tokens',
-    'tips callback' => 'api_tokens_filter_tips',
     // Don't cache fitler result as text may contain dynamic tokens
     'cache' => FALSE,
   );
@@ -41,26 +39,9 @@ function api_tokens_filter_info() {
 
 
 /**
- * Filter tip callback for the API tokens input filter.
- */
-function api_tokens_filter_tips($filter, $format, $long = FALSE) {
-  if ($long) {
-    // @TODO: Informative description
-    $output = t('[API Tokens long description]');
-  }
-  else {
-    // @TODO: Informative description
-    $output = t('[API Tokens short description]');
-  }
-
-  return $output;
-}
-
-
-/**
  * Populates omitted token info.
  */
-function api_tokens_populate_defaults($token, &$token_info, $module = 'api_tokens') {
+function api_tokens_populate_defaults($token, &$token_info, $module) {
   $token_info['key'] = $token;
   $token_info['module'] = $module;
   if (!isset($token_info['title'])) {
@@ -90,15 +71,7 @@ function api_tokens_collect_tokens() {
   $tokens = &drupal_static(__FUNCTION__, FALSE);
 
   if (!$tokens) {
-    require_once 'includes/handlers.inc';
-    // Collecting own tokens
-    // Direct call to own pseudo-hook hook_api_tokens_info().
-    $tokens = _api_tokens_api_tokens_info();
-    foreach ($tokens as $token => &$token_info) {
-      api_tokens_populate_defaults($token, $token_info);
-    }
-
-    // Collecting external tokens
+    $tokens = array();
     $modules = module_implements('api_tokens_info');
     foreach ($modules as $module) {
       $module_tokens = module_invoke($module, 'api_tokens_info');
@@ -148,8 +121,7 @@ function api_tokens_prepare_handler($token) {
   $tokens = &drupal_static('api_tokens_collect_tokens', FALSE);
 
   // Checking for inc file where token process function may live
-  // We skiping tokens with no module key. It is own tokens which have been already included
-  if ('api_tokens' != $tokens[$token]['module'] && isset($tokens[$token]['inc'])) {
+  if (isset($tokens[$token]['inc'])) {
     // Trying to include
     $included = module_load_include('inc', $tokens[$token]['module'], $tokens[$token]['inc']);
     if (!$included) {
@@ -268,8 +240,7 @@ function api_tokens_filter_tokens($text, $filter, $format, $langcode, $cache, $c
         $rendered[$i] = FALSE;
         $token_info = $tokens[$keys[$i]];
         // Parsing token parameters
-        $params[$i] = $params[$i] ? drupal_json_decode($params[$i]) : NULL;
-
+        $params[$i] = $params[$i] ? drupal_json_decode($params[$i]) : array();
         // Token is cacheable
         if (DRUPAL_NO_CACHE != $token_info['cache']) {
           $cids[$i] = api_tokens_cache_id($token_info, $params[$i]);
