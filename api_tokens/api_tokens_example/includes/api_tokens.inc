@@ -1,10 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains API Token handlers.
+ */
+
 
 /**
- * Defines date API tokens handler.
+ * Defines "user-link" API Token handler.
  */
-function api_token_provider_handle_user_link() {
+function api_tokens_example_handle_user_link() {
   global $user;
 
   $output = $user->uid ? l($user->name, 'user/' . $user->uid) : t('Anonimous');
@@ -14,17 +19,23 @@ function api_token_provider_handle_user_link() {
 }
 
 
-function api_token_provider_apitoken_node_list() {
+/**
+ * Defines "node-list" API Token handler.
+ */
+function api_tokens_example_apitoken_node_list($content_type = '') {
   $query = db_select('node', 'N');
   $query->join('node_type', 'T', 'N.type = T.type');
   $query->leftJoin('users', 'U', 'U.uid = N.uid');
   $query->addField('T', 'name', 'type');
-  $data = $query->fields('N', array('nid', 'title'))
+  $query->fields('N', array('nid', 'title'))
     ->fields('U', array('uid', 'name'))
     ->condition('N.status', 1)
     ->condition('U.uid', 0, '<>')
-    ->orderBy('N.created', 'DESC')
-    ->range(0, 10)
+    ->orderBy('N.created', 'DESC');
+  if ($content_type) {
+    $query->condition('N.type', $content_type);
+  }
+  $data = $query->range(0, 10)
     ->execute()
     ->fetchAll();
 
@@ -47,13 +58,6 @@ function api_token_provider_apitoken_node_list() {
   );
 
   $content = theme('table', $vars);
-
-  return $content;
-}
-
-
-function api_token_provider_apitoken_test_token() {
-  $content = '<strong>TEST TOKEN CONTENT</strong>';
 
   return $content;
 }

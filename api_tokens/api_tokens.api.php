@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Hooks provided by the API-Tokens module.
+ * Hooks provided by the API Tokens module.
  */
 
 /**
@@ -11,22 +11,18 @@
  */
 
 /**
- * Register API tokens
+ * Declares API tokens.
  *
  * Token example:
- *   [api:demo["param1", {"param2": {"inner1": "value1"}}]/]
- * Parameters part must be a valid JSON array.
- *
- * Extra spaces are allowed:
- *  [  api  :  demo  [  "param1"  ,   {  "param2"  :   {  "inner1"  :   "value1"  }  }  ]  /  ]
+ *   Non-parametric: [api:demo/]
+ *       Parametric: [api:demo["param1", {"param2": {"key1": "value1"}}]/]
+ * Parameters part must be a valid JSON array. Extra spaces are allowed.
  *
  * @return
  *   Array of tokens to register.
  */
 function hook_api_tokens_api_tokens_info() {
-  $tokens = array();
-
-  // Token key must be lowercase, may contain "a-z", "-", "_", ":"
+  // Token key must be lowercase, may contain following characters: "a-z", "-", "_", ":"
   $tokens['demo'] = array(
     // Title of the token
     // If omitted, token key will be used
@@ -35,21 +31,23 @@ function hook_api_tokens_api_tokens_info() {
 
     // Description of the token
     // Optional
-    'description' => t('Demo API token description'),
+    'description' => t('Description of the Demo API token'),
 
     // Name of the token process function
     // Must be defined within the module or its include file
     // If omitted, will be set to [%module_name]_apitoken_[%token_name]
+    // ("-" and ":" characters are replaced with "_")
     // Optional
     'handler' => 'modulename_apitoken_demo',
 
-    // Relative path to token process function without extension.
+    // Relative path to the token process function without extension.
     // If omitted, means that the process function located in .module file
     // Optional
+    // modulename/includes/handlers.inc
     'inc' => 'includes/handlers',
 
     // Number of required parameters of the process function
-    // If omitted, api_tokens_param_info() will be used to determine number of required parameters
+    // If omitted, api_tokens_param_info() will be used to determine the number of required parameters
     // Optional
     'params' => 2,
 
@@ -71,7 +69,8 @@ function hook_api_tokens_api_tokens_info() {
     //   Cache lifetime number in seconds
     // If omitted, CACHE_TEMPORARY will be used
     // Optional
-    'cache_expire' => 300, // 5 minutes
+    // 5 minutes
+    'cache_expire' => 300,
   );
 
   return $tokens;
@@ -85,8 +84,7 @@ function hook_api_tokens_api_tokens_info() {
  * Process function for the Demo API Token.
  */
 function modulename_apitoken_demo($arg1, $arg2) {
-  // Some processing
-  // ...
+  $result = some_processing($arg1, $arg2);
 
   return $result;
 }

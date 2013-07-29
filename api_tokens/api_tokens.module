@@ -1,15 +1,20 @@
 <?php
 
+/**
+ * @file
+ * The API Tokens module
+ *
+ * It contains the implementation of hooks invoked by Drupal core.
+ */
+
 
 /**
  * Implements hook_menu().
  */
 function api_tokens_menu() {
-  $items = array();
-
   $items['admin/config/content/api-tokens'] = array(
     'title' => 'API Tokens',
-    'description' => t('List of registered API tokens'),
+    'description' => 'List of registered API tokens',
     'page callback' => 'api_tokens_page_list',
     'access callback' => 'user_access',
     'access arguments' => array('administer filters'),

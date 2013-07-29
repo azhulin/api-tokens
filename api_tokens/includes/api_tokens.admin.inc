@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Administrative interface for the API Tokens module.
+ */
+
 
 /**
  * Renders synopsis cell.

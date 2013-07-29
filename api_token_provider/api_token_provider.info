@@ -1,4 +1,0 @@
-name = API Token Provider
-description = Defines custom API tokens.
-package = Other
-core = 7.x
