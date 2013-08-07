@@ -1,4 +1,0 @@
-name = API Tokens
-description = Provides an input filter that allows to replace custom parametric tokens with rendered content.
-package = Filters/Editors
-core = 7.x
