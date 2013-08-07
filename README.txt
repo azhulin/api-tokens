@@ -1,9 +1,25 @@
 -- SUMMARY --
 
 The API Tokens module provides an input filter that allows to replace custom
-parametric tokens with rendered content. Each module is able to define own
-parametric tokens (via hook_api_tokens_info) and token render function. Module
-provides flexible caching mechanism.
+parametric tokens with rendered content. Each declared token binds to its
+handler function, that returns content, token will be replaced with. Token may
+contain parameters that will be passed to its handler function.
+
+For example, you can declare a token which will render a current date on each
+page reload as follows:
+  [api:date/],
+or render blocks:
+  [api:block["module", "delta"]/],
+or even views:
+  [api:view["view_name", "display_id"]/] - without arguments
+  [api:view["view_name", "display_id", ["arg1", "arg2"]]/] - with arguments.
+
+Each module is able to define its own parametric tokens and corresponding
+render functions. Module provides flexible caching mechanism.
+
+Note that API Tokens module does not provide any visible functions to the user
+on its own, it just provides handling services for other modules.
+
 
 For a full description of the module, visit the project page:
   http://drupal.org/project/api_tokens
